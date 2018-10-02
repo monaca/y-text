@@ -113,23 +113,28 @@ export default function extendYText (Y) {
 
         function monacoCallback (event) {
           mutualExcluse(function () {
-            // compute start.. (col+row -> index position)
-            // We shouldn't compute the offset on the old model..
-            //    var start = monacoInstance.model.getOffsetAt({column: event.range.startColumn, lineNumber: event.range.startLineNumber})
-            // So we compute the offset using the _content of this type
-            for (var i = 0, line = 1; line < event.range.startLineNumber; i++) {
-              if (self._content[i].val === '\n') {
-                line++
+            // The monaco version we use sends content changes in event.changes array even if there's only one change, which is true for most cases.
+            // However, monaco seems to buffer changes and sometimes sends more changes in a single call, so we have to iterate through all changes.
+            for (var idx = 0; idx < event.changes.length; idx++) {
+              var change = event.changes[idx]
+              // compute start.. (col+row -> index position)
+              // We shouldn't compute the offset on the old model..
+              //    var start = monacoInstance.model.getOffsetAt({column: event.range.startColumn, lineNumber: event.range.startLineNumber})
+              // So we compute the offset using the _content of this type
+              for (var i = 0, line = 1; line < change.range.startLineNumber; i++) {
+                if (self._content[i].val === '\n') {
+                  line++
+                }
               }
-            }
-            var start = i + event.range.startColumn - 1
+              var start = i + change.range.startColumn - 1
 
-            // apply the delete operation first
-            if (event.rangeLength > 0) {
-              self.delete(start, event.rangeLength)
+              // apply the delete operation first
+              if (change.rangeLength > 0) {
+                self.delete(start, change.rangeLength)
+              }
+              // apply insert operation
+              self.insert(start, change.text)
             }
-            // apply insert operation
-            self.insert(start, event.text)
           })
         }
         var disposeBinding = monacoInstance.onDidChangeModelContent(monacoCallback).dispose
